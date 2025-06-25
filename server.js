@@ -58,6 +58,7 @@ io.on('connection', (socket) => {
     });
 
     // クライアントが切断した場合
+    //memo
     socket.on('disconnect', () => {
         console.log('User disconnected');
     });
