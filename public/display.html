@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コメント表示</title>
+    <style>
+        body {
+            background-color: rgba(0, 0, 0, 0);
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: flex-start;
+            position: relative;
+        }
+        .comment {
+            position: absolute;
+            white-space: nowrap;
+            font-size: 64px !important; /* デフォルトサイズ */
+            font-weight: bold;
+            color: white;
+            text-shadow:
+                -2px -2px 0 #000,
+                2px -2px 0 #000,
+                -2px 2px 0 #000,
+                2px 2px 0 #000;
+            animation: flowComment 10s linear forwards; /* アニメーション設定 (10秒で流れきる) */
+            z-index: 1000;
+            /* Y座標とX座標はJSで設定 */
+        }
+
+        @keyframes flowComment {
+            from { right: -100%; } /* 画面右端の外から開始 */
+            to { right: calc(100% + var(--comment-width)); } /* コメントの幅分だけ左に流れる */
+        }
+
+        .comment.small {
+            font-size: 48px !important;
+        }
+        .comment.large {
+            font-size: 80px !important;
+        }
+    </style>
+</head>
+<body>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const body = document.body;
+
+        // 現在画面上に存在するコメントの情報を保持する配列
+        // { id: number, element: HTMLElement, startY: number, endY: number, animationEndTime: number }
+        const activeComments = [];
+        let commentIdCounter = 0; // 各コメントにユニークなIDを付与
+
+        // 新しいコメントを受信したとき
+        socket.on('new comment', (msg) => {
+            console.log('received comment: ' + msg);
+            createCommentElement(msg);
+        });
+
+        function createCommentElement(text) {
+            const commentDiv = document.createElement('div');
+            commentDiv.classList.add('comment');
+            commentDiv.textContent = text;
+            const currentCommentId = commentIdCounter++; // ユニークIDを付与
+
+            // ランダムなフォントサイズを割り当てる
+            const sizes = ['large']; // ""はnormalサイズに対応
+            const randomSize = sizes[Math.floor(Math.random() * sizes.length)];
+            if (randomSize) {
+                commentDiv.classList.add(randomSize);
+            }
+
+            body.appendChild(commentDiv); // まずDOMに追加してサイズを正確に取得
+
+            const commentHeight = commentDiv.offsetHeight;
+            const commentWidth = commentDiv.offsetWidth;
+            const animationDurationMs = parseFloat(getComputedStyle(commentDiv).animationDuration) * 1000;
+
+            // CSS変数としてコメントの幅をセット（アニメーションの終了位置調整用）
+            commentDiv.style.setProperty('--comment-width', `${commentWidth}px`);
+
+            const displayAreaHeight = window.innerHeight * 0.5; // 画面の上半分をコメント表示領域とする
+            const padding = 5; // コメント間の最小パディング
+
+            let selectedY = -1; // 見つかった最適なY座標
+
+            // 利用可能なY座標の候補を、画面上部から順に探す
+            // 画面の高さに応じて探索行数を調整
+            const maxLinesToSearch = Math.floor(displayAreaHeight / (commentHeight + padding)) + 5;
+
+            for (let i = 0; i < maxLinesToSearch; i++) {
+                const potentialY = i * (commentHeight + padding); // Y座標の候補
+
+                if (potentialY + commentHeight > displayAreaHeight) {
+                    // 有効範囲を超えたら探索終了
+                    break;
+                }
+
+                let overlapFound = false;
+                const currentTime = Date.now();
+
+                // 古いコメント（アニメーションが終了したもの）をactiveCommentsから除去
+                // これにより、画面から消えたコメントのY座標が再利用可能になる
+                for (let j = activeComments.length - 1; j >= 0; j--) {
+                    if (activeComments[j].animationEndTime <= currentTime) {
+                        activeComments.splice(j, 1);
+                    }
+                }
+
+                // 現在アニメーション中のコメントと重なるかチェック
+                for (const existingComment of activeComments) {
+                    // Y座標が重なっているかチェック
+                    const yOverlap = !(potentialY + commentHeight <= existingComment.startY || potentialY >= existingComment.endY);
+
+                    if (yOverlap) {
+                        // Y座標が重なっている場合、X座標（横方向）も重なっているかチェック
+                        // 既存コメントの右端が画面のどの位置にあるか
+                        const existingCommentRect = existingComment.element.getBoundingClientRect();
+                        const existingCommentRightEdge = existingCommentRect.right;
+                        const existingCommentWidth = existingCommentRect.width;
+
+                        // 新しいコメントは画面右端から出現するので、既存コメントがまだ右側にいるか
+                        // 例えば、既存コメントがまだ画面の左端から画面幅の80%より右にいる場合は衝突と見なす
+                        // この閾値は調整可能。小さくすると密集しやすくなる
+                        const collisionThresholdX = window.innerWidth * 0.8;
+
+                        // 既存コメントが画面内にまだあり、かつ右側にいる（新しいコメントと衝突する可能性が高い）場合
+                        if (existingCommentRightEdge > 0 && existingCommentRightEdge > collisionThresholdX) {
+                            overlapFound = true;
+                            break; // 衝突が見つかったので、このY座標はスキップ
+                        }
+                    }
+                }
+
+                if (!overlapFound) {
+                    selectedY = potentialY;
+                    break; // 重ならないY座標が見つかった
+                }
+            }
+
+            // もし指定範囲内で最適な位置が見つからなかった場合、
+            // フォールバックとして、画面下部にランダムに配置するか、
+            // または古いコメントが完全に消えるまで待つなどのロジックを追加することも可能。
+            // ここでは、一旦画面のどこかに配置する
+            if (selectedY === -1) {
+                console.warn("Could not find ideal position, placing randomly in display area.");
+                selectedY = Math.floor(Math.random() * (displayAreaHeight - commentHeight));
+                if (selectedY < 0) selectedY = 0; // 0以下にならないように
+            }
+
+            commentDiv.style.top = `${selectedY}px`;
+
+            // activeComments にコメントの情報を追加
+            activeComments.push({
+                id: currentCommentId,
+                element: commentDiv, // 要素自体を保持
+                startY: selectedY,
+                endY: selectedY + commentHeight,
+                animationEndTime: Date.now() + animationDurationMs // アニメーション終了予定時刻
+            });
+
+            // アニメーション終了後に要素をDOMから削除するイベントリスナー
+            commentDiv.addEventListener('animationend', () => {
+                commentDiv.remove();
+                // activeComments からは既に animationEndTime で除去されているはずなので、
+                // ここでの明示的な削除は不要（あるいは、念のためIDで探して削除）
+                // ただし、このイベントはアニメーションが実際に終了した時に発火するので、
+                // タイミングのズレを考慮するなら、ここで再度削除を試みるのが確実。
+                const index = activeComments.findIndex(comment => comment.id === currentCommentId);
+                if (index !== -1) {
+                    activeComments.splice(index, 1);
+                }
+            }, { once: true }); // イベントリスナーは一度だけ実行されるように設定
+        }
+    </script>
+</body>
+</html>

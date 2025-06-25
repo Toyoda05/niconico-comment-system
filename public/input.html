@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コメント入力</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            resize: vertical;
+            min-height: 80px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #message {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>コメントを入力</h1>
+        <textarea id="commentInput" placeholder="コメントを入力してください..." maxlength="50"></textarea>
+        <button onclick="sendComment()">指示があったら押してください。</button>
+        <div id="message"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const commentInput = document.getElementById('commentInput');
+        const messageDiv = document.getElementById('message');
+
+        function sendComment() {
+            const comment = commentInput.value.trim();
+            if (comment) {
+                socket.emit('comment', comment);
+                commentInput.value = ''; // 入力欄をクリア
+                messageDiv.textContent = 'コメントを送信しました！';
+                messageDiv.className = 'success';
+                setTimeout(() => {
+                    messageDiv.textContent = '';
+                    messageDiv.className = '';
+                }, 3000); // 3秒後にメッセージを消す
+            } else {
+                messageDiv.textContent = 'コメントが入力されていません。';
+                messageDiv.className = 'error';
+            }
+        }
+
+        //memo
+        // Enterキーで送信
+        commentInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { // Shift+Enterで改行
+                e.preventDefault(); // デフォルトの改行を防ぐ
+                sendComment();
+            }
+        });
+    </script>
+</body>
+</html>

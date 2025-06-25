@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コメント予約</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        textarea {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            resize: vertical;
+            min-height: 80px;
+            box-sizing: border-box;
+        }
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .input-group input[type="number"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #message {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>コメントを予約</h1>
+        <textarea id="commentInput" placeholder="コメントを入力してください..." maxlength="50"></textarea>
+
+        <div class="input-group">
+            <label for="delayInput">何秒後に流しますか？</label>
+            <input type="number" id="delayInput" value="10" min="1">
+        </div>
+
+        <button onclick="reserveComment()">予約する</button>
+        <div id="message"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        const commentInput = document.getElementById('commentInput');
+        const delayInput = document.getElementById('delayInput');
+        const messageDiv = document.getElementById('message');
+
+        function reserveComment() {
+            const comment = commentInput.value.trim();
+            const delay = delayInput.value;
+
+            if (!comment) {
+                showMessage('コメントが入力されていません。', 'error');
+                return;
+            }
+            if (!delay || parseInt(delay, 10) <= 0) {
+                showMessage('時間は1以上の整数で指定してください。', 'error');
+                return;
+            }
+
+            // サーバーに予約情報を送信
+            socket.emit('reserve comment', { text: comment, delay: delay });
+
+            commentInput.value = ''; // 入力欄をクリア
+            showMessage(`コメント「<span class="math-inline">\{comment\}」を</span>{delay}秒後に流すよう予約しました。`, 'success');
+        }
+
+        function showMessage(text, type) {
+            messageDiv.textContent = text;
+            messageDiv.className = type;
+            setTimeout(() => {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }, 5000); // 5秒後にメッセージを消す
+        }
+    </script>
+</body>
+</html>

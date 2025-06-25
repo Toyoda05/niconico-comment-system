@@ -1,0 +1,28 @@
+{
+  "name": "niconico-comment-system",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Toyoda05/niconico-comment-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Toyoda05/niconico-comment-system/issues"
+  },
+  "homepage": "https://github.com/Toyoda05/niconico-comment-system#readme",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1",
+    "ws": "^8.18.2"
+  },
+  "engines": {
+    "node": "22.x"
+  }
+}
